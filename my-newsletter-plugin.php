@@ -26,6 +26,8 @@
      return $wpdb->prefix . 'my_newsletter_subscribers';
  }
  
+
+
  /**
   * On plugin activation, create the subscribers table
   */
@@ -71,7 +73,7 @@
  
      $args = array(
          'labels'             => $labels,
-         'public'             => false,
+         'public'             => true,
          'show_ui'            => true,
          'capability_type'    => 'post',
          'supports'           => array( 'title' ), 
