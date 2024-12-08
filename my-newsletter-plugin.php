@@ -2,13 +2,12 @@
 /**
  * Plugin Name: My Newsletter Plugin
  * Plugin URI:  http://example.com
- * Description: A custom newsletter plugin to collect emails and send notifications on new posts.
- * Version:     1.0.0
+ * Description: A custom newsletter plugin to collect emails, send notifications on new posts, and store contact form submissions.
+ * Version:     1.1.0
  * Author:      Bakry Abdelsalam
  * Author URI:  https://bakry2.vercel.app/
  * License:     GPL2
  */
-
 
 // Exit if accessed directly
 if ( ! defined( 'ABSPATH' ) ) {
@@ -16,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 global $my_newsletter_db_version;
-$my_newsletter_db_version = '1.2.0';
+$my_newsletter_db_version = '1.3.0';
 
 /**
  * Get subscribers table name
@@ -27,23 +26,45 @@ function my_newsletter_get_table_name() {
 }
 
 /**
- * On plugin activation, create the subscribers table
+ * Get contacts table name
+ */
+function my_newsletter_get_contacts_table_name() {
+    global $wpdb;
+    return $wpdb->prefix . 'my_newsletter_contacts';
+}
+
+/**
+ * On plugin activation, create the subscribers and contacts tables
  */
 function my_newsletter_plugin_activate() {
     global $wpdb, $my_newsletter_db_version;
 
-    $table_name = my_newsletter_get_table_name();
+    $subscribers_table = my_newsletter_get_table_name();
+    $contacts_table = my_newsletter_get_contacts_table_name();
     $charset_collate = $wpdb->get_charset_collate();
 
-    $sql = "CREATE TABLE $table_name (
+    // Subscribers table
+    $sql_subscribers = "CREATE TABLE $subscribers_table (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
         email varchar(255) NOT NULL UNIQUE,
         subscribed_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";
 
+    // Contacts table
+    $sql_contacts = "CREATE TABLE $contacts_table (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        name varchar(255) NOT NULL,
+        email varchar(255) NOT NULL,
+        message text NOT NULL,
+        subscribed tinyint(1) NOT NULL DEFAULT 0,
+        submitted_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        PRIMARY KEY (id)
+    ) $charset_collate;";
+
     require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-    dbDelta( $sql );
+    dbDelta( $sql_subscribers );
+    dbDelta( $sql_contacts );
 
     add_option('my_newsletter_db_version', $my_newsletter_db_version);
 }
@@ -61,11 +82,21 @@ function my_newsletter_admin_menu() {
         'my_newsletter_admin_page',
         'dashicons-email-alt'
     );
+
+    // Add a submenu for Contact Entries
+    add_submenu_page(
+        'newsletter_subscribers',
+        'Contact Form Entries',
+        'Contact Entries',
+        'manage_options',
+        'newsletter_contact_entries',
+        'my_newsletter_contact_entries_page'
+    );
 }
 add_action('admin_menu', 'my_newsletter_admin_menu');
 
 /**
- * Admin Page Content
+ * Admin Page for Subscribers
  */
 function my_newsletter_admin_page() {
     global $wpdb;
@@ -139,7 +170,47 @@ function my_newsletter_admin_page() {
 }
 
 /**
- * Shortcode to display subscription form
+ * Admin Page for Contact Entries
+ */
+function my_newsletter_contact_entries_page() {
+    global $wpdb;
+    $contacts_table = my_newsletter_get_contacts_table_name();
+    $entries = $wpdb->get_results("SELECT id, name, email, message, subscribed, submitted_at FROM $contacts_table ORDER BY submitted_at DESC");
+    ?>
+    <div class="wrap">
+        <h1>Contact Form Entries</h1>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Message</th>
+                    <th>Subscribed</th>
+                    <th>Submitted At</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ( !empty($entries) ): ?>
+                    <?php foreach ($entries as $entry): ?>
+                        <tr>
+                            <td><?php echo esc_html($entry->name); ?></td>
+                            <td><?php echo esc_html($entry->email); ?></td>
+                            <td><?php echo esc_html($entry->message); ?></td>
+                            <td><?php echo $entry->subscribed ? 'Yes' : 'No'; ?></td>
+                            <td><?php echo esc_html($entry->submitted_at); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr><td colspan="5">No contact entries found.</td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php
+}
+
+/**
+ * Shortcode to display subscription/contact form
  */
 function my_newsletter_subscribe_form() {
     $message = '';
@@ -148,14 +219,38 @@ function my_newsletter_subscribe_form() {
     if ( isset( $_POST['my_newsletter_email'] ) && wp_verify_nonce( $_POST['my_newsletter_nonce'], 'my_newsletter_subscribe' ) ) {
         global $wpdb;
         $email = sanitize_email( $_POST['my_newsletter_email'] );
-        $table_name = my_newsletter_get_table_name();
+        $name = sanitize_text_field( $_POST['my_newsletter_name'] );
+        $contact_message = sanitize_textarea_field( $_POST['my_newsletter_message'] );
+        $subscribe = isset($_POST['my_newsletter_subscribe']) ? 1 : 0;
+
+        $contacts_table = my_newsletter_get_contacts_table_name();
+        $subscribers_table = my_newsletter_get_table_name();
 
         if ( is_email($email) ) {
-            $result = $wpdb->insert($table_name, array('email' => $email), array('%s'));
+            // Insert into contacts table
+            $result = $wpdb->insert(
+                $contacts_table, 
+                array(
+                    'name' => $name,
+                    'email' => $email,
+                    'message' => $contact_message,
+                    'subscribed' => $subscribe
+                ),
+                array('%s','%s','%s','%d')
+            );
+
             if ( $result ) {
-                $message = '<p style="color:green; text-align:center;">You have successfully subscribed!</p>';
+                // If user chose to subscribe, also insert into subscribers if not already there
+                if ( $subscribe ) {
+                    $already_subscribed = $wpdb->get_var($wpdb->prepare("SELECT id FROM $subscribers_table WHERE email = %s", $email));
+                    if (!$already_subscribed) {
+                        $wpdb->insert($subscribers_table, array('email' => $email), array('%s'));
+                    }
+                }
+
+                $message = '<p style="color:green; text-align:center;">Your message has been sent successfully!</p>';
             } else {
-                $message = '<p style="color:red; text-align:center;">This email is already subscribed.</p>';
+                $message = '<p style="color:red; text-align:center;">An error occurred. Please try again.</p>';
             }
         } else {
             $message = '<p style="color:red; text-align:center;">Please enter a valid email address.</p>';
@@ -163,18 +258,27 @@ function my_newsletter_subscribe_form() {
     }
 
     ob_start(); ?>
-    <form action="" method="post" class="newsletter-form">
+    <form action="" method="post" class="newsletter-form" style="max-width:400px;margin:0 auto;">
         <?php echo $message; ?>
-        <label for="my_newsletter_email" class="form-label">Join Our Newsletter</label>
-        <input type="email" name="my_newsletter_email" id="my_newsletter_email" class="form-input" placeholder="Enter your email..." required>
+        <label for="my_newsletter_name">Name</label><br>
+        <input type="text" name="my_newsletter_name" id="my_newsletter_name" class="form-input" required style="width:100%;margin-bottom:10px;"><br>
+
+        <label for="my_newsletter_email">Email</label><br>
+        <input type="email" name="my_newsletter_email" id="my_newsletter_email" class="form-input" placeholder="Enter your email..." required style="width:100%;margin-bottom:10px;"><br>
+
+        <label for="my_newsletter_message">Message</label><br>
+        <textarea name="my_newsletter_message" id="my_newsletter_message" rows="5" required style="width:100%;margin-bottom:10px;"></textarea><br>
+
+        <label for="my_newsletter_subscribe" style="margin-bottom:10px;">
+            <input type="checkbox" name="my_newsletter_subscribe" id="my_newsletter_subscribe" value="1"> Subscribe to Newsletter
+        </label><br><br>
+
         <?php wp_nonce_field('my_newsletter_subscribe', 'my_newsletter_nonce'); ?>
-        <button type="submit" class="form-button">Subscribe</button>
+        <button type="submit" class="form-button" style="width:100%;">Send</button>
     </form>
     <?php return ob_get_clean();
 }
 add_shortcode('my_newsletter_form', 'my_newsletter_subscribe_form');
-
-
 
 /**
  * Auto-send email to all subscribers when a new post is published
