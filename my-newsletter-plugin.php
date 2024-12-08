@@ -153,26 +153,27 @@ function my_newsletter_subscribe_form() {
         if ( is_email($email) ) {
             $result = $wpdb->insert($table_name, array('email' => $email), array('%s'));
             if ( $result ) {
-                $message = '<p style="color:green;">You have successfully subscribed!</p>';
+                $message = '<p style="color:green; text-align:center;">You have successfully subscribed!</p>';
             } else {
-                $message = '<p style="color:red;">This email is already subscribed.</p>';
+                $message = '<p style="color:red; text-align:center;">This email is already subscribed.</p>';
             }
         } else {
-            $message = '<p style="color:red;">Please enter a valid email address.</p>';
+            $message = '<p style="color:red; text-align:center;">Please enter a valid email address.</p>';
         }
     }
 
     ob_start(); ?>
-    <form action="" method="post">
+    <form action="" method="post" class="newsletter-form">
         <?php echo $message; ?>
-        <label for="my_newsletter_email">Your Email:</label><br>
-        <input type="email" name="my_newsletter_email" id="my_newsletter_email" required>
+        <label for="my_newsletter_email" class="form-label">Join Our Newsletter</label>
+        <input type="email" name="my_newsletter_email" id="my_newsletter_email" class="form-input" placeholder="Enter your email..." required>
         <?php wp_nonce_field('my_newsletter_subscribe', 'my_newsletter_nonce'); ?>
-        <input type="submit" value="Subscribe">
+        <button type="submit" class="form-button">Subscribe</button>
     </form>
     <?php return ob_get_clean();
 }
 add_shortcode('my_newsletter_form', 'my_newsletter_subscribe_form');
+
 
 
 /**
