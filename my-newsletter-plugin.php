@@ -3,7 +3,7 @@
  * Plugin Name: My Newsletter Plugin
  * Plugin URI:  http://example.com
  * Description: A custom newsletter plugin to collect emails, send notifications on new posts, and store contact form submissions.
- * Version:     1.1.0
+ * Version:     1.2.0
  * Author:      Bakry Abdelsalam
  * Author URI:  https://bakry2.vercel.app/
  * License:     GPL2
@@ -13,14 +13,6 @@
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
-
-
-
-// Enqueue the popup JavaScript
-function my_newsletter_enqueue_scripts() {
-    wp_enqueue_script('my-newsletter-popup', plugin_dir_url(__FILE__) . 'js/my-newsletter-popup.js', array('jquery'), '1.0', true);
-}
-add_action('wp_enqueue_scripts', 'my_newsletter_enqueue_scripts');
 
 global $my_newsletter_db_version;
 $my_newsletter_db_version = '1.3.0';
@@ -325,3 +317,29 @@ function my_newsletter_auto_send_email($ID, $post) {
     }
 }
 add_action('publish_post', 'my_newsletter_auto_send_email', 10, 2);
+
+/**
+ * Enqueue the popup JavaScript and styles
+ */
+function my_newsletter_enqueue_scripts() {
+    wp_enqueue_script('my-newsletter-popup', plugin_dir_url(__FILE__) . 'js/my-newsletter-popup.js', array('jquery'), '1.0', true);
+    wp_enqueue_style('my-newsletter-style', plugin_dir_url(__FILE__) . 'css/my-newsletter-style.css', array(), '1.0');
+}
+add_action('wp_enqueue_scripts', 'my_newsletter_enqueue_scripts');
+
+/**
+ * Print popup HTML in footer
+ */
+function my_newsletter_popup_html() {
+    if (!is_admin()) {
+        ?>
+        <div id="newsletter-popup-overlay" style="display:none;">
+            <div id="newsletter-popup-content">
+                <?php echo do_shortcode('[my_newsletter_form]'); ?>
+                <button type="button" id="newsletter-popup-close" style="margin-top:20px;">Close</button>
+            </div>
+        </div>
+        <?php
+    }
+}
+add_action('wp_footer', 'my_newsletter_popup_html');
