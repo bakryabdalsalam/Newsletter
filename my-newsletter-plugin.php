@@ -14,6 +14,14 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+
+
+// Enqueue the popup JavaScript
+function my_newsletter_enqueue_scripts() {
+    wp_enqueue_script('my-newsletter-popup', plugin_dir_url(__FILE__) . 'js/my-newsletter-popup.js', array('jquery'), '1.0', true);
+}
+add_action('wp_enqueue_scripts', 'my_newsletter_enqueue_scripts');
+
 global $my_newsletter_db_version;
 $my_newsletter_db_version = '1.3.0';
 
@@ -123,7 +131,7 @@ function my_newsletter_admin_page() {
     ?>
     <div class="wrap">
         <h1>Newsletter Subscribers</h1>
-        <form method="post">
+        <form id="my-newsletter-form" method="post">
             <?php wp_nonce_field('send_newsletter_email', 'my_newsletter_nonce'); ?>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
