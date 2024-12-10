@@ -248,6 +248,18 @@ function my_newsletter_subscribe_form() {
                     }
                 }
 
+                // Send email to Contact@rehamaliart.com with the submitted data including the message
+                $admin_email = 'bakryabdalsalam6@gmail.com';
+                $subject     = 'New Form Submission';
+                $body        = "A new user has submitted the form:\n\n";
+                $body       .= "Name: {$name}\n";
+                $body       .= "Email: {$email}\n";
+                $body       .= "Subscribed: " . ( $subscribe ? 'Yes' : 'No' ) . "\n";
+                $body       .= "Message:\n{$contact_message}\n";
+
+                // Send the email
+                wp_mail( $admin_email, $subject, $body );
+
                 $message = '<p style="color:green; text-align:center;">Your message has been sent successfully!</p>';
             } else {
                 $message = '<p style="color:red; text-align:center;">An error occurred. Please try again.</p>';
@@ -267,7 +279,7 @@ function my_newsletter_subscribe_form() {
         <input type="email" name="my_newsletter_email" id="my_newsletter_email" class="form-input" placeholder="Enter your email..." required style="width:100%;margin-bottom:10px;"><br>
 
         <label for="my_newsletter_message">Message</label><br>
-        <textarea name="my_newsletter_message" id="my_newsletter_message" rows="5" required style="width:100%;margin-bottom:10px;"></textarea><br>
+        <textarea name="my_newsletter_message" id="my_newsletter_message" rows="5" style="width:100%;margin-bottom:10px;"></textarea><br>
 
         <label for="my_newsletter_subscribe" style="margin-bottom:10px;">
             <input type="checkbox" name="my_newsletter_subscribe" id="my_newsletter_subscribe" value="1"> Subscribe to Newsletter
