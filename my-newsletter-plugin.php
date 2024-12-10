@@ -298,48 +298,40 @@ add_shortcode('my_newsletter_form', 'my_newsletter_subscribe_form');
 
 // In my-newsletter-plugin.php
 
-function my_newsletter_auto_send_email( $ID, $post ) {
-    // List of post types to send emails for
+function my_newsletter_auto_send_email( $new_status, $old_status, $post ) {
+    // Allowed post types (make sure these match your actual CPT slugs)
     $allowed_post_types = array( 'post', 'events', 'projects', 'testimonials' );
 
-    // Check if the post is of the allowed types and is published
-    if ( ! in_array( $post->post_type, $allowed_post_types ) || $post->post_status !== 'publish' ) {
-        return;
-    }
+    // Check if post transitions from a different status to 'publish' and is in allowed post types
+    if ( $new_status === 'publish' && $old_status !== 'publish' && in_array( $post->post_type, $allowed_post_types ) ) {
+        global $wpdb;
+        $table_name = my_newsletter_get_table_name();
 
-    global $wpdb;
-    $table_name = my_newsletter_get_table_name();
+        // Fetch all subscriber emails
+        $subscribers = $wpdb->get_col( "SELECT email FROM $table_name" );
 
-    // Fetch all subscriber emails
-    $subscribers = $wpdb->get_col( "SELECT email FROM $table_name" );
+        if ( empty( $subscribers ) ) {
+            return; // No subscribers
+        }
 
-    if ( empty( $subscribers ) ) {
-        return; // No subscribers to send to
-    }
+        $post_title = get_the_title( $post->ID );
+        $post_url   = get_permalink( $post->ID );
+        $subject    = 'New ' . ucfirst( $post->post_type ) . ' Published: ' . $post_title;
 
-    // Post details
-    $post_title = get_the_title( $ID );
-    $post_url   = get_permalink( $ID );
-    $subject    = 'New ' . ucfirst( $post->post_type ) . ' Published: ' . $post_title;
+        $message  = '<h1>' . esc_html( $post_title ) . '</h1>';
+        $message .= '<p>A new ' . esc_html( $post->post_type ) . ' has been published on our website. You can read it here:</p>';
+        $message .= '<p><a href="' . esc_url( $post_url ) . '" target="_blank">Read Now</a></p>';
+        $message .= '<p>Thank you for subscribing to our newsletter!</p>';
 
-    $message  = '<h1>' . esc_html( $post_title ) . '</h1>';
-    $message .= '<p>A new ' . esc_html( $post->post_type ) . ' has been published on our website. You can read it here:</p>';
-    $message .= '<p><a href="' . esc_url( $post_url ) . '" target="_blank">Read Now</a></p>';
-    $message .= '<p>Thank you for subscribing to our newsletter!</p>';
+        $headers = array( 'Content-Type: text/html; charset=UTF-8' );
 
-    $headers = array( 'Content-Type: text/html; charset=UTF-8' );
-
-    // Send email to all subscribers
-    foreach ( $subscribers as $email ) {
-        wp_mail( $email, $subject, $message, $headers );
+        // Send email to all subscribers
+        foreach ( $subscribers as $email ) {
+            wp_mail( $email, $subject, $message, $headers );
+        }
     }
 }
-
-add_action( 'publish_post', 'my_newsletter_auto_send_email', 10, 2 );
-add_action( 'publish_events', 'my_newsletter_auto_send_email', 10, 2 );
-add_action( 'publish_projects', 'my_newsletter_auto_send_email', 10, 2 );
-add_action( 'publish_testimonials', 'my_newsletter_auto_send_email', 10, 2 );
-
+add_action( 'transition_post_status', 'my_newsletter_auto_send_email', 10, 3 );
 /**
  * Enqueue the popup JavaScript and styles
  */
