@@ -331,7 +331,7 @@ add_action('wp_enqueue_scripts', 'my_newsletter_enqueue_scripts');
  * Print popup HTML in footer
  */
 function my_newsletter_popup_html() {
-    if ( ! is_admin() ) {
+    if ( ! is_admin() && ! is_page( 'supscripe' ) ) {
         ?>
         <div id="newsletter-popup-overlay" style="display:none;">
             <div id="newsletter-popup-content">
@@ -343,8 +343,6 @@ function my_newsletter_popup_html() {
     }
 }
 add_action('wp_footer', 'my_newsletter_popup_html');
-
-
 
 
 // New form function without the message field
