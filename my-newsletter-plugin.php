@@ -331,11 +331,11 @@ add_action('wp_enqueue_scripts', 'my_newsletter_enqueue_scripts');
  * Print popup HTML in footer
  */
 function my_newsletter_popup_html() {
-    if (!is_admin()) {
+    if ( ! is_admin() ) {
         ?>
         <div id="newsletter-popup-overlay" style="display:none;">
             <div id="newsletter-popup-content">
-                <?php echo do_shortcode('[my_newsletter_form]'); ?>
+                <?php echo do_shortcode( '[my_newsletter_new_form]' ); ?>
                 <button type="button" id="newsletter-popup-close" style="margin-top:20px;">Close</button>
             </div>
         </div>
@@ -343,3 +343,73 @@ function my_newsletter_popup_html() {
     }
 }
 add_action('wp_footer', 'my_newsletter_popup_html');
+
+
+
+
+// New form function without the message field
+function my_newsletter_new_form() {
+    $message = '';
+
+    // Process form submission
+    if ( isset( $_POST['my_newsletter_email'] ) && wp_verify_nonce( $_POST['my_newsletter_nonce'], 'my_newsletter_subscribe' ) ) {
+        global $wpdb;
+        $email     = sanitize_email( $_POST['my_newsletter_email'] );
+        $name      = sanitize_text_field( $_POST['my_newsletter_name'] );
+        $subscribe = isset( $_POST['my_newsletter_subscribe'] ) ? 1 : 0;
+
+        $contacts_table    = my_newsletter_get_contacts_table_name();
+        $subscribers_table = my_newsletter_get_table_name();
+
+        if ( is_email( $email ) ) {
+            // Insert into contacts table without the message field
+            $result = $wpdb->insert(
+                $contacts_table,
+                array(
+                    'name'       => $name,
+                    'email'      => $email,
+                    'subscribed' => $subscribe,
+                ),
+                array( '%s', '%s', '%d' )
+            );
+
+            if ( $result ) {
+                // If user chose to subscribe, insert into subscribers table if not already there
+                if ( $subscribe ) {
+                    $already_subscribed = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $subscribers_table WHERE email = %s", $email ) );
+                    if ( ! $already_subscribed ) {
+                        $wpdb->insert( $subscribers_table, array( 'email' => $email ), array( '%s' ) );
+                    }
+                }
+
+                $message = '<p style="color:green; text-align:center;">Thank you for subscribing!</p>';
+            } else {
+                $message = '<p style="color:red; text-align:center;">An error occurred. Please try again.</p>';
+            }
+        } else {
+            $message = '<p style="color:red; text-align:center;">Please enter a valid email address.</p>';
+        }
+    }
+
+    ob_start(); ?>
+    <form action="" method="post" class="newsletter-form" style="max-width:400px;margin:0 auto;">
+        <?php echo $message; ?>
+        <label for="my_newsletter_name">Name</label><br>
+        <input type="text" name="my_newsletter_name" id="my_newsletter_name" class="form-input" required style="width:100%;margin-bottom:10px;"><br>
+
+        <label for="my_newsletter_email">Email</label><br>
+        <input type="email" name="my_newsletter_email" id="my_newsletter_email" class="form-input" placeholder="Enter your email..." required style="width:100%;margin-bottom:10px;"><br>
+
+        <label for="my_newsletter_subscribe" style="margin-bottom:10px;">
+            <input type="checkbox" name="my_newsletter_subscribe" id="my_newsletter_subscribe" value="1"> Subscribe to Newsletter
+        </label><br><br>
+
+        <?php wp_nonce_field( 'my_newsletter_subscribe', 'my_newsletter_nonce' ); ?>
+
+        <button type="submit" class="form-button" style="width:100%;">Subscribe</button>
+    </form>
+    <?php
+    return ob_get_clean();
+}
+// Register the new shortcode
+add_shortcode( 'my_newsletter_new_form', 'my_newsletter_new_form' );
