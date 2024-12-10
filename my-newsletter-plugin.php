@@ -249,7 +249,7 @@ function my_newsletter_subscribe_form() {
                 }
 
                 // Send email to Contact@rehamaliart.com with the submitted data including the message
-                $admin_email = 'bakryabdalsalam6@gmail.com';
+                $admin_email = 'Contact@rehamaliart.com';
                 $subject     = 'New Form Submission';
                 $body        = "A new user has submitted the form:\n\n";
                 $body       .= "Name: {$name}\n";
