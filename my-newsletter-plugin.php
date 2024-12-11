@@ -323,7 +323,10 @@ function my_newsletter_auto_send_email( $new_status, $old_status, $post ) {
         $message .= '<p><a href="' . esc_url( $post_url ) . '" target="_blank">Read Now</a></p>';
         $message .= '<p>Thank you for subscribing to our newsletter!</p>';
 
-        $headers = array( 'Content-Type: text/html; charset=UTF-8' );
+        $headers = array(
+            'Content-Type: text/html; charset=UTF-8',
+            'From: Reham Ali Art <Contact@rehamaliart.com>'
+        );
 
         // Send email to all subscribers
         foreach ( $subscribers as $email ) {
