@@ -299,11 +299,8 @@ add_shortcode('my_newsletter_form', 'my_newsletter_subscribe_form');
 // In my-newsletter-plugin.php
 
 function my_newsletter_auto_send_email( $new_status, $old_status, $post ) {
-    // Allowed post types (make sure these match your actual CPT slugs)
-    $allowed_post_types = array( 'post', 'events', 'projects', 'testimonials' );
-
-    // Check if post transitions from a different status to 'publish' and is in allowed post types
-    if ( $new_status === 'publish' && $old_status !== 'publish' && in_array( $post->post_type, $allowed_post_types ) ) {
+    // Check if the post transitions from a different status to 'publish'
+    if ( $new_status === 'publish' && $old_status !== 'publish' ) {
         global $wpdb;
         $table_name = my_newsletter_get_table_name();
 
@@ -316,6 +313,8 @@ function my_newsletter_auto_send_email( $new_status, $old_status, $post ) {
 
         $post_title = get_the_title( $post->ID );
         $post_url   = get_permalink( $post->ID );
+
+        // Craft the subject line dynamically based on the post type
         $subject    = 'New ' . ucfirst( $post->post_type ) . ' Published: ' . $post_title;
 
         $message  = '<h1>' . esc_html( $post_title ) . '</h1>';
@@ -335,6 +334,8 @@ function my_newsletter_auto_send_email( $new_status, $old_status, $post ) {
     }
 }
 add_action( 'transition_post_status', 'my_newsletter_auto_send_email', 10, 3 );
+
+
 /**
  * Enqueue the popup JavaScript and styles
  */
