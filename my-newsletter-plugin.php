@@ -293,48 +293,97 @@ function my_newsletter_subscribe_form() {
 add_shortcode('my_newsletter_form', 'my_newsletter_subscribe_form');
 
 /**
- * Auto-send email to all subscribers when a new post is published
+ * Main hook that fires on post status transition.
+ * We specifically want to send emails when a post is published for the first time.
  */
+add_action( 'transition_post_status', 'my_newsletter_auto_send_email_on_publish', 10, 3 );
 
-// In my-newsletter-plugin.php
-
-function my_newsletter_auto_send_email( $new_status, $old_status, $post ) {
-    // Check if the post transitions from a different status to 'publish'
-    if ( $new_status === 'publish' && $old_status !== 'publish' ) {
-        global $wpdb;
-        $table_name = my_newsletter_get_table_name();
-
-        // Fetch all subscriber emails
-        $subscribers = $wpdb->get_col( "SELECT email FROM $table_name" );
-
-        if ( empty( $subscribers ) ) {
-            return; // No subscribers
-        }
-
-        $post_title = get_the_title( $post->ID );
-        $post_url   = get_permalink( $post->ID );
-
-        // Craft the subject line dynamically based on the post type
-        $subject    = 'New ' . ucfirst( $post->post_type ) . ' Published: ' . $post_title;
-
-        $message  = '<h1>' . esc_html( $post_title ) . '</h1>';
-        $message .= '<p>A new ' . esc_html( $post->post_type ) . ' has been published on our website. You can read it here:</p>';
-        $message .= '<p><a href="' . esc_url( $post_url ) . '" target="_blank">Read Now</a></p>';
-        $message .= '<p>Thank you for subscribing to our newsletter!</p>';
-
-        $headers = array(
-            'Content-Type: text/html; charset=UTF-8',
-            'From: Reham Ali Art <Contact@rehamaliart.com>'
-        );
-
-        // Send email to all subscribers
-        foreach ( $subscribers as $email ) {
-            wp_mail( $email, $subject, $message, $headers );
-        }
+/**
+ * Check if post is newly published and trigger email sending.
+ *
+ * @param string $new_status The new status of the post.
+ * @param string $old_status The old status of the post.
+ * @param WP_Post $post The post object.
+ */
+function my_newsletter_auto_send_email_on_publish( $new_status, $old_status, $post ) {
+    // Ensure we only run when transitioning from a non-published status to published
+    if ( $old_status !== 'publish' && $new_status === 'publish' ) {
+        // Optional debug log
+        // error_log( "my_newsletter_auto_send_email_on_publish triggered for post ID: {$post->ID}" );
+        
+        my_newsletter_send_emails_for_post( $post );
     }
 }
-add_action( 'transition_post_status', 'my_newsletter_auto_send_email', 10, 3 );
 
+/**
+ * Send emails to all subscribers about a newly published post.
+ *
+ * @param WP_Post $post The post object.
+ */
+function my_newsletter_send_emails_for_post( $post ) {
+    global $wpdb;
+
+    $table_name = my_newsletter_get_table_name();
+
+    // Fetch all subscriber emails
+    $subscribers = $wpdb->get_col( $wpdb->prepare( "SELECT email FROM $table_name" ) );
+
+    if ( empty( $subscribers ) ) {
+        // Optional debug log
+        // error_log('No subscribers found. No emails sent.');
+        return;
+    }
+
+    $post_title   = get_the_title( $post->ID );
+    $post_url     = get_permalink( $post->ID );
+    $post_type    = $post->post_type;
+    $post_type_uc = ucfirst( $post_type );
+
+    // Construct a dynamic subject line
+    $subject = "New {$post_type_uc} Published: {$post_title}";
+
+    // Construct the HTML message
+    $message  = "<h1>" . esc_html( $post_title ) . "</h1>";
+    $message .= "<p>A new " . esc_html( $post_type ) . " has been published on our website. You can read it here:</p>";
+    $message .= "<p><a href='" . esc_url( $post_url ) . "' target='_blank'>Read Now</a></p>";
+    $message .= "<p>Thank you for subscribing to our newsletter!</p>";
+
+    // Setup headers for HTML email
+    $headers = array( 'Content-Type: text/html; charset=UTF-8' );
+
+    // Use filters to set 'From' name and email if needed (this ensures best practices for email)
+    add_filter( 'wp_mail_from', 'my_newsletter_mail_from' );
+    add_filter( 'wp_mail_from_name', 'my_newsletter_mail_from_name' );
+
+    foreach ( $subscribers as $email ) {
+        // Send each email individually. This is a best practice to avoid listing all subscribers in one email.
+        $sent = wp_mail( $email, $subject, $message, $headers );
+
+        if ( ! $sent ) {
+            // Optional debug log
+            error_log("Failed to send newsletter email to: {$email}");
+        }
+    }
+
+    // Remove filters after sending
+    remove_filter( 'wp_mail_from', 'my_newsletter_mail_from' );
+    remove_filter( 'wp_mail_from_name', 'my_newsletter_mail_from_name' );
+}
+
+/**
+ * Set the email 'From' address.
+ */
+function my_newsletter_mail_from( $email ) {
+    // Ensure this is a valid domain you control, and matches SPF/DKIM
+    return 'contact@rehamaliart.com';
+}
+
+/**
+ * Set the 'From' name for the email.
+ */
+function my_newsletter_mail_from_name( $name ) {
+    return 'Reham Ali Art';
+}
 
 /**
  * Enqueue the popup JavaScript and styles
