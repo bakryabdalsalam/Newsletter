@@ -248,6 +248,18 @@ function my_newsletter_subscribe_form() {
                     }
                 }
 
+
+                    // Send confirmation email to the user
+                    $user_subject = 'Subscription Confirmation';
+                    $user_message = "Hello {$name},\n\n";
+                    $user_message .= "Thank you for subscribing to our newsletter!\n\n";
+                    $user_message .= "Best regards,\n";
+                    $user_message .= "Reham Ali Art";
+
+                    // Send the email
+                    wp_mail( $email, $user_subject, $user_message );
+                }
+
                 // Send email to Contact@rehamaliart.com with the submitted data including the message
                 $admin_email = 'Contact@rehamaliart.com';
                 $subject     = 'New Form Submission';
